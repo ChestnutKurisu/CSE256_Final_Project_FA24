@@ -1,4 +1,4 @@
-# Enhancing LLMs for Solving Competition-Level Algebra Problems Using Retrieval-Augmented Generation and Chain-of-Thought Prompting
+# Enhancing LLMs for Solving Competition-Level Algebra Problems Using RAG and CoT Prompting
 
 This repository contains code and resources for the research project on evaluating and enhancing large language models (LLMs) for solving competition-level algebra problems. The project explores the effectiveness of Retrieval-Augmented Generation (RAG) and Chain-of-Thought (CoT) prompting techniques in improving the mathematical reasoning capabilities of LLMs.
 
