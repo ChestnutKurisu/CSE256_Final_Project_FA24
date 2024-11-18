@@ -1,0 +1,7 @@
+Method,Accuracy
+Zero-Shot Prompting,57.99999999999999
+Standard CoT Prompting,60.0
+RAG,56.00000000000001
+RAG + CoT,50.0
+RAG + Self-Consistency Decoding,54.0
+Code Execution with SymPy,52.0
