@@ -1,0 +1,411 @@
+# Stepwise Self-Consistent Mathematical Reasoning with Large Language Models
+
+Zilong Zhao
+
+Yao Rong
+
+Dongyang Guo
+
+Emek Gozluiklu
+
+Emir Gulboy
+
+Enkelejda Kasneci
+
+Q: Simplify \(\tan 100^{c}+4\sin 100^{c}\).
+
+Try different identities.
+
+Get Critical identities.
+
+###### Abstract
+
+Using Large Language Models for complex mathematical reasoning is difficult, primarily due to the complexity of multi-step reasoning. The main challenges of this process include (1) selecting critical intermediate results to advance the procedure, and (2) limited exploration of potential solutions. To address these issues, we introduce a novel algorithm, namely Stepwise Self-Consistent Chain-of-Thought (SSC-CoT). SSC-CoT employs a strategy of selecting intermediate steps based on the intersection of various reasoning chains. Additionally, SSC-CoT enables the model to discover critical intermediate steps by querying a knowledge graph comprising relevant domain knowledge. To validate SSC-CoT, we present a new dataset, TriMaster100, tailored for complex trigonometry problems. This dataset contains 100 questions, with each solution broken down into scored intermediate steps, facilitating a comprehensive evaluation of the mathematical reasoning process. On TriMaster100, SSC-CoT triples the effectiveness of the state-of-the-art methods. Furthermore, we benchmark SSC-CoT on the widely recognized complex mathematical question dataset, MATH level 5, and it surpasses the second-best method by 7.2% in accuracy. Code and the TriMaster100 dataset can be found at: [https://github.com/zhao-zilong/ssc-cot](https://github.com/zhao-zilong/ssc-cot).
+
+Machine Learning, ICML, ICML
+
+## 1 Introduction
+
+Large Language Models (LLMs) are increasingly being utilized for mathematical reasoning tasks (Imani et al., 2023; Wei et al., 2022; Kojima et al., 2022; Wang et al., 2022; Azerbayev et al., 2023; Chen et al., 2022; Xin et al., 2023; Trinh et al., 2024; Paranjape et al., 2023). However, these models predominantly focus on simpler mathematical problems (Cobbe et al., 2021; Ling et al., 2017; Roy and Roth, 2016; Patel et al., 2021). Tackling complex mathematical questions remains a significant challenge (Trinh et al., 2024; Azerbayev et al., 2023; Xin et al., 2023). This difficulty often arises from the foundational models' limited knowledge, impairing their ability to comprehend complex questions. Additionally, the long reasoning chains required for complex problem-solving necessitate carefully designed multi-step reasoning (Yao et al., 2023; Besta et al., 2023) methods to arrive at the final answer.
+
+Although existing multi-step reasoning algorithms demonstrate notable capabilities in solving mathematical problems, they encounter challenges when addressing more complex mathematical questions. Identifying critical intermediate steps is important for guiding the model towards correct solutions in these difficult problems. However, existing approaches are not effective in discovering these critical intermediate steps. Additionally, the model tends to become stuck at an intermediate step, hindering further progress. To address these two challenges, we propose a novel framework named Stepwise Self-Consistent Chain-of-Thought (SSC-CoT), which enhances LLMs' capabilities in multi-step reasoning for complex mathematical questions.
+
+The design of SSC-CoT is inspired by the scenario where humans tackle a complex problem. They often go through multiple attempts, reaching a promising intermediate step where they may encounter a roadblock. At this moment, a hint can facilitate their continued progress. In practice, SSC-CoT first selects a set of potential intermediate steps by determining their intersection across multiple reasoning
+
+Figure 1: Our SSC-CoT (Right) improves the ability of LLMs (Left) to solve complex mathematical questions.
+
+chains. It then evaluates the correctness of each step within this intersection set and selects the most optimal ones for progression. To overcome being stuck at a step, it also queries a Knowledge Graph (KG) that contains external mathematical knowledge. The information gathered, along with identified key intermediate steps, is then crafted into hints that guide and further prompt the model. Our algorithm enhances the model's capability by providing them with critical intermediate steps, thereby enabling it to discover important steps it would not have identified independently. As illustrated in Figure 1, we present a trigonometry question to ChatGPT 4 (on the left), and it arrives at the correct answers after a thousand attempts1. SSC-CoT (on the right) helps the model identify critical intermediate steps through verification and KG integration, enabling the model to reach the correct answer within 50 attempts.
+
+Footnote 1: Example question can be found at [https://openai.com](https://openai.com) /research/improving-mathematical-reasoning -with-process-supervision.
+
+To fairly validate the effectiveness of multi-step reasoning methods in discovering critical intermediate steps, we collected a dataset, TriMaster100, comprising 100 complex trigonometry questions (up to Mathematical Olympiad difficulty level). Each question is accompanied by a solution divided into intermediate steps, each of which is scored. Recognizing the challenge for LLMs to solve complex mathematical questions within a limited number of attempts, TriMaster100 focuses on evaluating the model's ability through the scoring of intermediate steps. This differs from existing mathematical question benchmarks, which typically concentrate only on the correctness of the final answer, without considering the evaluation of these intermediate phases. We posit that evaluating intermediate results is crucial for complex mathematical questions. Given the typically low accuracy of all mathematical reasoning algorithms on such datasets, distinguishing the true capabilities of these algorithms based solely on final outcomes is inappropriate. Beyond this dataset, we benchmark our model on MATH level 5 (Hendrycks et al., 2021), which is recognized as a complex dataset, to showcase its ability in solving various types of mathematical questions. To summarize, our contributions are as follows:
+
+* We introduce a novel multi-step reasoning algorithm SSC-CoT to tackle complex mathematical questions. This algorithm significantly improves LLM's capabilities in identifying critical intermediate steps for problem-solving.
+* We propose a procedure to establish a KG and allow LLM to efficiently retrieve information in textual form, facilitating the generation of critical intermediate results.
+* We provide a new dataset named TriMaster100 designed for evaluating intermediate results in very complex mathematical questions.
+* We benchmark SSC-CoT with state-of-the-art (SOTA) multi-step reasoning algorithms on TriMaster100 and MATH datasets, where our algorithm significantly surpasses others, demonstrating its ability in solving complex questions by identifying critical intermediate steps.
+
+## 2 Related Work
+
+LLMs for Mathematical Reasoning.To enhance mathematical reasoning capabilities, recent efforts can be categorized into two approaches: one is training domain-specific models such as LLEMMA (Azerbayev et al., 2023), while the other leverages in-context learning methods without training. The former method enhances model capabilities but demands substantial resources. Furthermore, this specialization may lead to a reduced ability to understand broader contexts, potentially compromising the models' effectiveness in comprehending and solving questions outside the fine-tuning dataset. Therefore, our focus is on an innovative in-context learning approach. A representative of such an approach is Chain-of-Thought (CoT) (Kojima et al., 2022; Wei et al., 2022). CoT significantly improves the problem-solving abilities of Large Language Models (LLMs) in mathematics by incorporating intermediate steps into their outputs. Following this principle, Tree-of-Thought (ToT) (Yao et al., 2023; Long, 2023) and Graph-of-Thought (GoT) (Besta et al., 2023) prompt the model to evaluate the current step and choose the next promising step. However, ToT and GoT have a limitation: they consider only one step ahead without emphasizing the overview of the problem, which can slow down the problem-solving process. Our method addresses this by generating the next step based on the overlapping intermediate steps from multiple trials (chains). CoT with Self-Consistency (CoT-SC) proposed by Wang et al. (2022) similarly leverages the overlap between multiple chains, Nevertheless, it restricts this overlap selection to the final answers. In contrast, our approach focuses on the correctness of intermediate results, leading to improved reasoning performance compared to CoT-SC.
+
+Retrieval Augmentation for Mathematical ReasoningThe Retrieval-Augmented Generation (RAG) (Lewis et al., 2020) technique was first proposed for knowledge-intensive NLP tasks. The framework contains a retrieval component which can fetch relevant information from a structured knowledge base, such as database or knowledge graph. This framework has been successfully implemented for commonsense reasoning (Yu et al., 2022), and middle-school algebra and geometry QA (Levonian et al., 2023). Studies (Xin et al., 2023; Yang et al., 2023) have explored the integration of RAG with LLMs for mathematical reasoning, specifically for theorem proving. These works utilize a library containing vector embeddings of definitions and theorems for retrieval using cosine similarity based on the question's embedding. In this paper, our approach, utilizinga knowledge graph, diverges by focusing on providing relevant trigonometry identities directly linked to the question's elements, such as trigonometric functions and angles, enabling a more direct match than the cosine similarity method used in (Xin et al., 2023; Yang et al., 2023) for theorem retrieval. This ensures a clearer relation between the question and the information retrieved.
+
+## 3 TriMaster100 Dataset
+
+Existing datasets for complex mathematical questions include only the final answer or encapsulate the entire reasoning process in a single string, lacking clear intermediate results. These datasets fall short in adequately distinguishing the nuanced problem-solving abilities required for such tasks, because of the low accuracy current mathematical reasoning algorithms achieve on complex questions. Relying solely on accuracy for evaluation proves inadequate in these challenging contexts. To address this, we introduce the TriMaster100 dataset, comprising 100 challenging trigonometry questions ranging from senior high school to Mathematical Olympiad levels. TriMaster100's innovative evaluation methodology not only assesses final answer accuracy but also scores intermediate results, enabling a more detailed and accurate evaluation of an algorithm's problem-solving process. This fills a critical gap in assessing complex mathematical reasoning.
+
+### Dataset Construction
+
+To ensure the complexity of the questions, we employed GPT-4 as a standard, presenting each question to it three times as a prompt. A question was defined as _complex_ if GPT-4 failed to solve it completely on at least one occasion. Notably, if GPT-4 delivered a direct answer without explaining the reasoning process, we explicitly requested the model to outline the intermediate steps involved (prompts in Appendix A.1). A question is considered solved only if both the intermediate steps and the final answer provided are correct. Also due to the above reason, the Wolfram plugin in GPT-4 (Inc.), which is a powerful computation plugin, is not used since it cannot output all reasoning steps. The resulting dataset comprises questions broken down into various intermediate steps, with each step being assigned a specific score. The aggregation of scores for all these steps forms an extensive evaluation, culminating in a total of 750 points across the 100 questions. Comparing to prior math datasets, TriMaster100 offers a thorough assessment of a model's reasoning capabilities by evaluating not just the final answer but also the intermediate steps. This approach is grounded in two fundamental reasons: (1) Current models often fail to fully solve the problem, thereby not reaching the conclusive answer; (2) A correct final answer, if derived through incorrect intermediate steps, should not be considered as a demonstration of valid mathematical reasoning.
+
+Figure 2 illustrates an example of the annotated intermediate steps with their scores in the TriMaster100 dataset. This question encompasses 8 intermediate results, resulting in total 8 points if the question is successfully solved. We recognize the possibility of parallel solution paths, e.g., step 1,2 and step 3,4. In such cases, scores for each distinct path should be calculated independently, and the final scores from these different paths are then summed up. It is important to understand that mathematical questions often allow multiple valid solutions. Therefore, even if a reasoning process correctly reaches step 6 without adhering to steps from 1 to 5, we still attribute a final score of 6 if all its previous steps are verified to be correct. Please note that TriMaster100 includes labeled final results, which allows users to employ TriMaster100 as prior math datasets to evaluate the accuracy of final answer.
+
+Trigonometry was selected due to its perceived difficulty and abstract nature (Sayster, 2023), making it ideal for complex mathematical question reasoning. Looking ahead, we plan to integrate a KG to enhance mathematical reasoning abilities. Trigonometry's relatively limited fundamental identities facilitate the creation of a concise yet detailed KG. This strategic focus on trigonometry ensures agility in developing, validating, and refining methodologies. The TriMaster100 was independently audited by three researchers to ensure its accuracy.
+
+### Human-Level Performance
+
+We offer a preliminary yet informative comparison to human-level performance by randomly selecting \(10\) questions from TriMaster100 and testing them with human par
+
+Figure 2: Example of the annotated intermediate steps with its scores in TriMaster100.
+
+ticipants. We recruited a group of five participants, each holding a Master's Degree. During the evaluation, each participant was given a maximum of one hour to solve two questions. Collectively, the five participants achieved 17 points out of a possible 63 for the ten questions. On average, participants spent 9 minutes per question, indicating that they did not develop new thoughts on solving the question after that time. Only one question was completely solved. The best-performing participant scored 9 points out of 13, while two participants scored 0 for their questions. This result indicates that questions in TriMaster100 are difficult.
+
+## 4 Stepwise Self-Consistent Chain of Thought
+
+In this section, we introduce the workflow of SSC-CoT, followed by the detail of the two core components in our algorithm: (1) The design of the KG in the context of trigonometry questions and the approach to retrieve information from it (Section 4.2); (2) The procedure of selecting critical intermediate steps (Section 4.3).
+
+### SSC-CoT Workflow
+
+Figure 3 presents the SSC-CoT workflow for two rounds of trigonometry question querying. First, when presented with a question \(Q\), step 1 extracts a set of key information from the question, which is represented as \(\mathcal{V}=E(p_{\theta},Q)\) where \(E(\cdot)\) represents the extraction function and \(p_{\theta}\) denotes an LLM with parameter \(\theta\). With a set of extracted information \(\mathcal{V}\), SSC-CoT queries related information from the KG for the round \(k\), represented as \(r_{k}=S(\mathcal{G},\mathcal{V})\) where \(S(\cdot)\) represents the searching function and \(\mathcal{G}\) denotes a KG (detail in Section 4.2). In step 2, the information \(r_{1}\) (\(k=1\)), used as a _hint_ with the question \(Q\), forms a prompt. This then leads to 3, which generates \(N\) reasoning chains: \(\mathcal{C}_{i}=G_{1}(p_{\theta},Q,r_{1})\) where \(i\in[1,N]\), and \(G_{1}(\cdot)\) is the function to generate reasoning chain for round 1 with \(N=3\) in this example, \(G_{1}(\cdot)\) prompt template is added in Appendix A.4. Each circle in the chain symbolizes an intermediate result, which is defined as a **state**\(x_{i}^{j}\), with \(i\) and \(j\) referring to \(i\)th chain position \(j\).
+
+In the first round, all generated states are used to identify those states that share identical mathematical meanings (indicated in green). Results preceding these overlapping states within the same reasoning chain are marked as **Inactive** (shown in grey), signifying their exclusion in subsequent overlap searches. Intermediate result selection detail is provided in Section 4.3. The selected overlapping states form a set and denotes as \(\mathbf{S}\). Step 4 involves sending \(\mathbf{S}\) along with the original question \(Q\) to a verifier. This is represented as \(\mathbf{S}_{v}=\left\{x_{i}^{j}\in\mathbf{S}\mid V(Q,x_{i}^{1}x_{i}^{2}...x_{i }^{j})=1\right\}\), where \(V\) denotes the verification function. It is important to note that, due to the identical nature of overlapping intermediate results, verification only requires a single chain of the result up to the intermediate result, rather than from all chains. In the current implementation of SSC-CoT, this verification role \(V(\cdot)\) is fulfilled by the language model, its prompt template is added in Appendix A.3. In step 5, the intermediate results that do not pass the verification are discarded, while the ones that pass the verification are combined to a verified set of states \(\mathbf{S}_{v}\). This set is used to query related information from the KG, i.e., \(r_{k}=S(\mathcal{G},E(p_{\theta},\mathbf{S}_{v}))\). This information \(r_{k}\), combined with the question and intermediate result, serves as a new prompt for the subsequent round of querying. Step 7 generates reasoning chains for round 2, i.e., \(\mathcal{C}_{i}=G(p_{\theta},Q,r_{2},\mathbf{S}_{v})\) with \(k=2\), prompt template of \(G\) is added in Appendix A.5. In this round, we evaluate not only the results from the current round but also those from round 1 that were not marked Inactive. The selection of a new overlapping result (orange circle) in step 8 triggers a repetition of steps 4 through 7. The algorithm proceeds
+
+Figure 3: An example of Stepwise Self-Consistent Chain-of-Thought workflow.
+
+until it reaches a predefined number of rounds or queries. To conclude the final result from SSC-CoT, we will first find out which intermediate result contains the conclusion statement. The final result is then derived from the majority vote among all these conclusion statements.
+
+### Knowledge Graph Design and Exploration
+
+Design.Figure 4 shows a subset of our KG. There are two types of nodes: (1) **Conceptual Node** and (2) **Theorem Node**. The Conceptual Node refers to foundational elements in trigonometry, for example, \(\sin^{3}x\) and \(\cos x\). On the other hand, Theorem Node represent general mathematical propositions or axioms, such as \(\cos\frac{\pi}{2}=0\). The edges between nodes represent the directional relationships or dependencies between the concepts. Structured as a directed graph, it features four types of connections: (1) **Dependency Link**, illustrating a concept's reliance on another. For instance, a link from the \(\sin x\) node to \(\tan x=\sin x/\cos x\) indicates the latter's dependency on \(\sin x\). (2) **Derivation Link**, signifying a derivation or logical progression from one concept or identity to another. An example is a link from \(\sin x\) to \(\sin 3x=3\sin x-4\sin^{3}x\), indicating the derivation of the latter from the former. (3) **Application Link**, employed when a concept is utilized to deduce a specific instance or case. For instance, a link from \(\cos x\) to \(\cos(\frac{\pi}{2})=0\) demonstrates the application of \(\cos x\) to a particular scenario. (4) **Identity Link**, which connects two identity nodes, demonstrating how one identity relates to or is transformed into another, such as \(\tan x\) to \(\tan x=\sin x/\cos x\).
+
+Information Retrieval.We employ in-context learning to distill features from the question, i.e., function \(E(\cdot)\). Details of the query template can be found in Appendix A.2. The extracted features are categorized into two segments: (1) trigonometric functions e.g., \(\sin x\), \(\cos^{2}x\), \(\sin x\cos y\), and (2) associated angles e.g., \(\frac{\pi}{2}\), \(3x\), \(\pi-x\). Our approach to query the KG, i.e., function \(S(\cdot)\), contains three steps. First, we temporarily exclude \(\sin x\), \(\cos x\), \(\tan x\), \(\sec x\), \(\csc x\) and \(\cot x\) from the extracted trigonometric functions. For the remaining functions, we search for nodes linked with them and retrieve their node information. Second, we integrate all extracted trigonometric functions with the involved angles. In this context, the trigonometric function serves to identify nodes, while the involved angles are used to match edges. Finally, we combine the data collected from both steps, removing any redundant details. This refined information is then utilized as contextual _hints_ within the prompt, aiding in solving the question.
+
+As users apply our method to solve trigonometry problems, certain conclusions drawn from these problems can serve as lemmas for subsequent questions. Our KG is designed to be expandable. We offer an interface that allows users to add new nodes and edges to the KG. As more lemmas are incorporated, the KG becomes robust, providing more relevant information for future use.
+
+### Intermediate Result Selection
+
+In SSC-CoT, we posit that intermediate results in overlaps among multiple reasoning chains can be beneficial for subsequent reasoning stages. The intuition behind this is that errors in reasoning can manifest in various ways. But to accurately solve a problem, different methodologies are likely to converge on certain key intermediate results; Additionally, when we need to select a single state from multiple options within the same reasoning chain, the deepest state is chosen. This selection criterion is based on the observation that all states leading up to the deepest one contribute to its deduction, thereby making the selection of earlier states unnecessary for our purpose. Based on these rationales, we explain how we arrive at \(\mathbf{S}\), as illustrated in Figure 3 for steps 4 and 8.
+
+To identify overlapping intermediate results, SSC-CoT in
+
+Figure 4: A subset of knowledge graph for trigonometry.
+
+corporates a step for assessing the similarity between pairs of results. This process involves converting each intermediate result into a TF (Term Frequency) - IDF (Inverse Document Frequency) vector. We then compute the pairwise cosine similarity for all vector pairs. If the cosine similarity between any two vectors exceeds the pre-set threshold \(T\) (\(T=0.999\)), those intermediate results are deemed overlapping. TF-IDF and cosine similarity are widely utilized in information retrieval to calculate text similarity (Schutze et al., 2008). Please note that our algorithm enables a _human-in-the-loop_ option (detail in Section 5.2), as the overlapping states selection can be executed by human participants.
+
+Upon all the overlapping intermediate results, we assess their respective priorities and choose those with the highest. Given two groups defined as \(A=\{x_{a_{i}}^{a_{j}}\}\) and \(B=\{x_{b_{i}}^{b_{j}}\}\) and \(A\cap B=\varnothing\). If \(A\) can be inferred from \(B\), then \(B\) will not be selected as \(A\) is more advanced in the reasoning chain. Therefore, we focus on the states from \(A\) and \(B\) that come from the same chain \(m\), which we denote their positions in the chain as \(a_{j}|_{a_{i}=m}\) and \(b_{j}|_{b_{i}=m}\), respectively. Chain number \(m\) forms a set \(M\). Concretely, the selected group after the comparison of \(A\) and \(B\) is as follows:
+
+\[\begin{cases}B,&\text{if }\forall m\in M,b_{j}|_{b_{i}=m}>a_{j}|_{a_{i}=m},\\ A&\text{if }\forall m\in M,a_{j}|_{a_{i}=m}>b_{j}|_{b_{i}=m},\\ A\cup B,&\text{otherwise}.\end{cases} \tag{1}\]
+
+The first condition represents the scenario that the position of states in group \(B\) is consistently deeper than those in \(A\), indicating that \(A\) is used to infer \(B\). In this case, only the group \(B\) will be kept. Similarly, \(A\) is the inference of \(B\) if the second condition fulfilled. The first two conditions are depicted in Figure 5 (b). Beyond these two conditions, the two groups could be independent as depicted in Figure 5 (a). In this scenario, \(M=\varnothing\) indicating that there is no overlapping chain between two groups. Figure 5 (c) illustrates that the two groups are intertwined. This can occur when simplifying a fractional expression: one might choose to simplify the numerator before the denominator, or vice versa. These steps can proceed in parallel but this simultaneity is not reflected in the reasoning chain.
+
+Above mentioned scenarios only contain two overlapping groups, Figure 4(d) illustrates a more complex scenario which contains seven groups of overlapping intermediate results. The selection process for determining which group(s) of intermediate results to utilize is formalized in Algorithm 1. In Algorithm 1, we prepare (1) whole reasoning chains \(\mathcal{C}\) and (2) list of deepest overlapping intermediate result state in each reasoning chain: \(\mathcal{L}_{all}\). It is important to note that for each group of overlapping intermediate results, only one state will be included in \(\mathcal{L}_{all}\). The _PairWiseSelection_ function, outlined in line 8, ascertains the relationship between any \(\mathcal{L}_{all}[i]\) and \(\mathcal{L}_{all}[j]\) within the reasoning chain, adhering to the rules previously defined for selection between two groups. After completing all pairwise comparisons, the algorithm returns the final selected states.
+
+Finally, in scenarios where no overlap among intermediate results is observed, we will forward the final state from each reasoning chain to the verifier for further progression. If still no intermediate result are selected, the most recent set of intermediate results and related information will be reused for the current round of reasoning. However, each set of intermediate results and its related information is limited to a maximum of two uses. Should there be no new overlapping intermediate results after two uses, we will revert to the set of intermediate results and related information that precedes the recently used one. This backtracking process will continue until we utilize the first set of overlapping intermediate results and related information.
+
+## 5 Experiment
+
+In this section, we first introduce the experimental setup, including datasets, state-of-the-art baselines, and evaluation metrics. Then, we present the quantitative results, followed
+
+Figure 5: Chains of thought with more than one group of overlapping intermediate result scenarios. (a) Two overlapping intermediate result groups, overlapping nodes in different chains. (b) Two overlapping intermediate result groups, nodes from different group appear in one chain. (c) Two overlapping intermediate result groups, nodes from different group appear in two chains. (d) More than two overlapping intermediate result groups.
+
+up with a qualitative result comparison to further demonstrate the advantage of our method.
+
+### Experiment Setup
+
+Datasets.Our method is evaluated against other SOTA mathematical reasoning algorithms using the TriMaster100 dataset. Additionally, we benchmark these methods using the MATH dataset (Hendrycks et al., 2021). The MATH dataset comprises 12,500 questions from mathematics competitions, segmented into five ascending levels of difficulty, from level 1 to level 5. Given that our algorithm is specifically designed to tackle complex mathematical questions, our experiments focus exclusively on level 5 questions - the highest difficulty tier in MATH dataset. This level encompasses 1,324 questions spanning seven math categories: Algebra, Counting and Probability, Geometry, Number Theory, P recalculus, Prealgebra, and Intermediate Algebra. The number of questions in each category is given by Table 1.
+
+Baselines.In our research, we benchmark our SSC-CoT algorithm against other advanced in-context learning algorithms: Tree-of-Thought (ToT) (Yao et al., 2023) and CoT-SC (Wang et al., 2022). All three - ToT, CoT-SC, and our SSC-CoT- are implemented using the GPT-3.5. Graph-of-Thought (GoT) (Besta et al., 2023) is also a SOTA in-context multi-step reasoning algorithm. However, GoT's design, which is not tailored specifically for mathematical reasoning, necessitates that input question be broken down into sub-tasks - a requirement challenging to meet for mathematical questions. Therefore, GoT was not included as a baseline in our experiments. Beyond in-context learning algorithms, our research also encompasses benchmarks against LLEMMA (Azerbayev et al., 2023), a language model explicitly developed for mathematical tasks and acclaimed for its SOTA performance across diverse mathematical datasets. Our experiments are conducted using both the 7B and 34B versions of the LLEMMA model.
+
+For SSC-CoT, we generate 5 reasoning chains per round, with a limit of 4 rounds, resulting in a maximum of 20 reasoning chains per question. In the case of ToT, we configure it to produce 5 steps at each level, selecting one for further development. We cap the LLM queries at 20 per question, counting only those queries that generate thoughts, excluding state evaluations using the LLM. For CoT-SC, we perform 20 queries per question to the foundational model and apply a majority vote mechanism on the outcomes. For the LLEMMA experiments, we follow the CoT-SC procedure, with the only change being the replacement of the foundational model from the GPT-3.5 API to LLEMMA.
+
+Except for SSC-CoT, all other baselines use the same few-shot learning template, which is added in Appendix A.6. SSC-CoT cannot use the same template because SSC-CoT needs to extract intermediate results, therefore the expected output is different from other baselines.
+
+Evaluation Metrics.On the TriMaster100 dataset, we compute scores for intermediate results as introduced in Section 3. Specifically, we examine the deepest intermediate result correctly achieved by the model. The sum of scores over all questions will be used as the final result. Note that the maximum score on TriMaster100 is 750. On MATH, we use the accuracy of answers generated by language models to indicate the model performance.
+
+### Quantitative Results
+
+Ablation Study.In this section, we evaluate the efficacy of key components in our SSC-CoT, KG and intermediate result selection, by introducing three variants: **SSC-CoT-HITL**, **SSC-CoT-HITL**\(\backslash\)**KG** and **SSC-CoT\(\backslash\)**KG**. 'HITL' denotes 'human-in-the-loop', indicating that SSC-CoT-HITL incorporates human experts to select overlapping intermediate result, whereas SSC-CoT-HITL\(\backslash\)**KG** represents the SSC-CoT-HITL without KG. SSC-CoT\(\backslash\)**KG** represents the variant that SSC-CoT without using KG. Concretely, when comparing SSC-CoT and SSC-CoT-HITL with SSC-CoT\(\backslash\)**KG** and SSC-CoT-HITL\(\backslash\)**KG** in Figure 6, we see that utilizing KG efficiently improves the model's reasoning capabilities. Furthermore, the notable performance gap between SSC-CoT-HITL and SSC-CoT indicates a substantial boost from HITL intervention. When neither KG nor intermediate result selection is used, which is CoT-SC in Figure 6, SSC-CoT-HITL significantly outperforms, nearly
+
+\begin{table}
+\begin{tabular}{c|c|c|c|c|c|c|c|c} \hline \hline \multirow{2}{*}{Task} & \multirow{2}{*}{Algebra} & \multirow{2}{*}{\begin{tabular}{c} Counting \\ and Probability \\ \end{tabular} } & \multirow{2}{*}{\begin{tabular}{c} Geometry \\ Theory \\ \end{tabular} } & \multirow{2}{*}{\begin{tabular}{c} Number \\ Theory \\ \end{tabular} } & \multirow{2}{*}{Precalculus} & \multirow{2}{*}{\begin{tabular}{c} Prealgebra \\ \end{tabular} } & \multirow{2}{*}{
+\begin{tabular}{c} Intermediate \\ Algebra \\ \end{tabular} } & \multirow{2}{*}{**Total**} \\ \hline \#question & 307 & 123 & 132 & 154 & 135 & 193 & 280 & 1324 \\ \hline LLEMMA-7b & 9.1 & 4.1 & 2.3 & 3.9 & 2.2 & 9.8 & 2.1 & 5.3 \\ \hline LLEMMA-34b & 10.1 & 3.3 & 4.5 & 3.2 & 2.2 & 13.0 & 2.9 & 5.6 \\ \hline ToT & 27.4 & 14.6 & 3.8 & 11.0 & 1.5 & 34.7 & 3.2 & 15.3 \\ \hline CoT-SC & 37.8 & 17.9 & 3.8 & 22.7 & 4.4 & 38.3 & 3.2 & 20.2 \\ \hline (Ours) SSC-CoT & **42.7** & **25.2** & **15.9** & **31.8** & **7.4** & **49.7** & **8.9** & **27.4** \\ \hline \hline \end{tabular}
+\end{table}
+Table 1: Result on MATH. Majority voting with \(k\) = 20 is done for LLEMMA and CoT-SC. Best result is indicated in bold.
+
+tripling the score achieved by CoT-SC. Hence, KG and high quality intermediate result selection are both effective.
+
+Comparison with SOTA methods.In this section, we benchmark our SSC-CoT with baselines on both TriMaster100 and MATH Level 5 to show its _generalizability_ in solving complex mathematical questions. On **TriMaster100**, our SSC-CoT in Figure 6 surpasses all other baselines. For instance, SSC-CoT is \(34\%\) higher than CoT-SC, the second best result. With a more general version of SSC-CoT, i.e. no KG is used, SSC-CoT\(\backslash\)KG is still \(29\%\) higher than CoT-SC. The accuracy on final answer that all the baselines achieved on TriMaster100 is discussed in Appendix B.
+
+On **MATH**, the comparison of our general method, SSC-CoT\(\backslash\)KG, with other baselines are shown in Table 1. Overall, SSC-CoT achieves the highest average accuracy and surpasses the second-best result by a large margin of \(7.2\%\). Both LLEMMA models show lower performance compared to other baseline models. This can be attributed to their relatively smaller size, resulting in reduced competence in understanding and reasoning compared to GPT-3.5. It is worth noting that the performance across all algorithms is relatively better for Algebra and Prealgebra questions, reflecting the strengths and weaknesses of LLMs in processing different types of mathematical queries.
+
+### Qualitative Results
+
+Table 2 demonstrates a solution provided by our SSC-CoT. It solves this question within \(3\) rounds. With the related information in each round \(r_{k}\) and \(\mathbf{S}_{v}\) obtained from the last round, SSC-CoT is able to discover critical intermediates at each round, leading to the correct answer. ToT also focuses on simplifying \(\sin 3A\) to \(\sin A\), but it makes a factual mistake that \(\sin 3A\) can be decomposed to \(\sin 2A\cdot\sin A\). This indicates that without related information, it is difficult for the model to deploy the correct identity. More qualitative results can be found in Appendix C.
+
+## 6 Conclusion
+
+In this study, we introduce the Stepwise Self-Consistent Chain-of-Thought (SSC-CoT) algorithm, tailored for complex mathematical problem-solving. SSC-CoT improves the LLM's mathematical reasoning by identifying critical intermediate results through the intersection of diverse reasoning chains and integrating a knowledge graph. To evaluate SSC-CoT, we collected a new dataset, TriMaster100, with 100 complex trigonometry questions, each divided into scored intermediate steps totaling 750 points. Results on TriMaster100 and MATH level 5 datasets show SSC-CoT's superior performance compared to other methods, indicating its effectiveness in solving complex mathematical questions.
+
+Limitations and Future Work.The use of human-in-the-loop intermediate result selection significantly enhances results in Figure 6. This indicates the potential for enhancing automatic detection of overlapping intermediate results. In our future work, we plan to deploy a reinforcement learning algorithm to train a reward model for selecting overlapping results based on human decisions. Moreover, the verification is conducted by querying the LLM with the given prompt. We believe that incorporating a more robust verifier, as discussed in (Lightman et al., 2023; Dhuliawala et al., 2023), has the potential to further improve SSC-CoT.
+
+Ethical Statement.In this research, our goal is to improve the LLMs' capabilities to solve complex mathematical question. We also incorporated human experts' knowledge in some experiments to harvest an effective synergy between humans and AI models. To protect user privacy and rights, we have firmly followed the guidelines and regulations provided by our institution. We believe that by making AI more accessible, acceptable, and user-friendly, we can harness its potential to better assist humans.
+
+\begin{table}
+\begin{tabular}{c} \hline \hline \(Q\): Simplify \(\sin 3A/(1+2\cos 2A)\) \\ \hline \hline \multicolumn{2}{c}{**Reasoning from SSC-CoT *} \\ \hline \multicolumn{2}{c}{**Round 1 - Given:** \(Q_{1}\), \(r_{1}\)} \\ \(\mathbf{S}_{v}\): \(\sin 3A-3\sin 4-4\sin^{2}A\) \\ \(\mathbf{S}_{v}\): \((\sin A-4\sin^{2}A)\) \\ \(\mathbf{S}_{v}\): \((\sin A-4\sin^{2}A)\) \\ \(\mathbf{S}_{v}\): \((\sin A-4\sin^{2}A)\) \\ \(\mathbf{S}_{v}\): \((\sin A-4\sin^{2}A)\) \\ \(\mathbf{S}_{v}\): \((\sin A-4\sin^{2}A)\) \\ \(\mathbf{S}_{v}\): \((\sin A-4\sin^{2}A)\) \\ \(\mathbf{S}_{v}\): \((\sin A-4\sin^{2}A)\) \\ \(\mathbf{S}_{v}\): \((\sin A-4\sin^{2}A)\) \\ \(\mathbf{S}_{v}\): \((\sin A-4\sin^{2}A)\) \\ \hline \hline \multicolumn{2}{c}{**Reasoning from IoT**} \\ \hline \multicolumn{2}{c}{**Step 1 - Use \(\cos 2A=2\cos^{2}A-1,\sin 3A/(1+2\cos^{2}A-1)\)**} \\ \multicolumn{2}{c}{**Step 5 - Use identity \(\sin^{2}A+\cos^{2}A-1\)**} \\ \multicolumn{2}{c}{**Step 6 - Factoring out a \(\sin 4A\) in the numerator, we get an \(A\): \(\sin 2A/(3-4\sin^{2}A)\)**} \\ \multicolumn{2}{c}{\(\cdots\)**} \\ \hline \end{tabular}
+\end{table}
+Table 2: Solution provided by SSC-CoT (Top) and by ToT (Below) for a question from TriMaster100. Our SSC-CoT solves this question correctly based on \(\mathbf{S}_{v}\) highlighted in colors, while ToT makes a factual mistake (in red) and cannot arrive at the correct answer.
+
+Figure 6: Results on TriMaster100, full score is 750.
+
+## References
+
+* Azerbayev et al. (2023) Azerbayev, Z., Schoelkopf, H., Paster, K., Santos, M. D., McAleer, S., Jiang, A. Q., Deng, J., Biderman, S., and Welleck, S. Llemma: An open language model for mathematics. _arXiv preprint arXiv:2310.10631_, 2023.
+* Besta et al. (2023) Besta, M., Blach, N., Kubicek, A., Gerstenberger, R., Gianinazzi, L., Gajda, J., Lehmann, T., Podstawski, M., Niewiadomski, H., Nyczyk, P., et al. Graph of thoughts: Solving elaborate problems with large language models. _arXiv preprint arXiv:2308.09687_, 2023.
+* Chen et al. (2022) Chen, W., Ma, X., Wang, X., and Cohen, W. W. Program of thoughts prompting: Disentangling computation from reasoning for numerical reasoning tasks. _arXiv preprint arXiv:2211.12588_, 2022.
+* Cobbe et al. (2021) Cobbe, K., Kosaraju, V., Bavarian, M., Chen, M., Jun, H., Kaiser, L., Plappert, M., Tworek, J., Hilton, J., Nakano, R., et al. Training verifiers to solve math word problems. _arXiv preprint arXiv:2110.14168_, 2021.
+* Dhuliawala et al. (2023) Dhuliawala, S., Komeili, M., Xu, J., Raileanu, R., Li, X., Celikyilmaz, A., and Weston, J. Chain-of-verification reduces hallucination in large language models. _arXiv preprint arXiv:2309.11495_, 2023.
+* Hendrycks et al. (2021a) Hendrycks, D., Burns, C., Kadavath, S., Arora, A., Basart, S., Tang, E., Song, D., and Steinhardt, J. Measuring mathematical problem solving with the math dataset. In _Thirty-fifth Conference on Neural Information Processing Systems Datasets and Benchmarks Track_, 2021a.
+* Hendrycks et al. (2021b) Hendrycks, D., Burns, C., Kadavath, S., Arora, A., Basart, S., Tang, E., Song, D., and Steinhardt, J. Measuring mathematical problem solving with the math dataset. _arXiv preprint arXiv:2103.03874_, 2021b.
+* Imani et al. (2023) Imani, S., Du, L., and Shrivastava, H. Mathprompter: Mathematical reasoning using large language models. _arXiv preprint arXiv:2303.05398_, 2023.
+* Inc. (2024) Inc., W. R. Mathematica online, Version 14.0. URL [https://www.wolfram.com/mathematica](https://www.wolfram.com/mathematica). Champaign, IL, 2024.
+* Kojima et al. (2022) Kojima, T., Gu, S. S., Reid, M., Matsuo, Y., and Iwasawa, Y. Large language models are zero-shot reasoners. _URL https://arxiv. org/abs/2205.11916_, 2022.
+* Levonian et al. (2023) Levonian, Z., Li, C., Zhu, W., Gade, A., Henkel, O., Postle, M.-E., and Xing, W. Retrieval-augmented generation to improve math question-answering: Trade-offs between groundedness and human preference. _arXiv preprint arXiv:2310.03184_, 2023.
+* Lewis et al. (2020) Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Kuttler, H., Lewis, M., Yih, W.-t., Rocktaschel, T., Riedel, S., and Kiela, D. Retrieval-augmented generation for knowledge-intensive nlp tasks. In Larochelle, H., Ranzato, M., Hadsell, R., Balcan, M., and Lin, H. (eds.), _Advances in Neural Information Processing Systems_, volume 33, pp. 9459-9474. Curran Associates, Inc., 2020. URL [https://proceedings.neurips.cc/paper_files/paper/2020/file/6b493230205f780elbc26945df748le5-Paper.pdf](https://proceedings.neurips.cc/paper_files/paper/2020/file/6b493230205f780elbc26945df748le5-Paper.pdf).
+* Lightman et al. (2023) Lightman, H., Kosaraju, V., Burda, Y., Edwards, H., Baker, B., Lee, T., Leike, J., Schulman, J., Sutskever, I., and Cobbe, K. Let's verify step by step. _arXiv preprint arXiv:2305.20050_, 2023.
+* Ling et al. (2017) Ling, W., Yogatama, D., Dyer, C., and Blunsom, P. Program induction by rationale generation: Learning to solve and explain algebraic word problems. _arXiv preprint arXiv:1705.04146_, 2017.
+* Long (2023) Long, J. Large language model guided tree-of-thought. _arXiv preprint arXiv:2305.08291_, 2023.
+* Paranjape et al. (2023) Paranjape, B., Lundberg, S., Singh, S., Hajishirzi, H., Zettlemoyer, L., and Ribeiro, M. T. Art: Automatic multi-step reasoning and tool-use for large language models. _arXiv preprint arXiv:2303.09014_, 2023.
+* Patel et al. (2021) Patel, A., Bhattacharya, S., and Goyal, N. Are nlp models really able to solve simple math word problems? _arXiv preprint arXiv:2103.07191_, 2021.
+* Roy & Roth (2016) Roy, S. and Roth, D. Solving general arithmetic word problems. _arXiv preprint arXiv:1608.01413_, 2016.
+* Sayster (2023) Sayster, A. High-school students' productive struggles during the simplification of trigonometrical expressions and the proving of trigonometrical identities. 2023.
+* Schutze et al. (2008) Schutze, H., Manning, C. D., and Raghavan, P. _Introduction to information retrieval_, volume 39. Cambridge University Press Cambridge, 2008.
+* Testolin (2024) Testolin, A. Can neural networks do arithmetic? a survey on the elementary numerical skills of state-of-the-art deep learning models. _Applied Sciences_, 14(2), 2024. ISSN 2076-3417. doi: 10.3390/app14020744. URL [https://www.mdpi.com/2076-3417/14/2/744](https://www.mdpi.com/2076-3417/14/2/744).
+* Trinh et al. (2024) Trinh, T. H., Wu, Y., Le, Q. V., He, H., and Luong, T. Solving olympiad geometry without human demonstrations. _Nature_, 625(7995):476-482, 2024.
+* Wang et al. (2022) Wang, X., Wei, J., Schuurmans, D., Le, Q. V., Chi, E. H., Narang, S., Chowdhery, A., and Zhou, D. Self-consistency improves chain of thought reasoning in language models. In _The Eleventh International Conference on Learning Representations_, 2022.
+
+Wei, J., Wang, X., Schuurmans, D., Bosma, M., ichter, b., Xia, F., Chi, E., Le, Q. V., and Zhou, D. Chain-of-thought prompting elicits reasoning in large language models. In Koyejo, S., Mohamed, S., Agarwal, A., Belgrave, D., Cho, K., and Oh, A. (eds.), _Advances in Neural Information Processing Systems_, volume 35, pp. 24824-24837. Curran Associates, Inc., 2022. URL [https://proceedings.neurips.cc/paper_files/paper/2022/file/9d5609613524ecf4f15af0f7b3labca4-Paper-Conference.pdf](https://proceedings.neurips.cc/paper_files/paper/2022/file/9d5609613524ecf4f15af0f7b3labca4-Paper-Conference.pdf).
+* Xin et al. (2023) Xin, H., Wang, H., Zheng, C., Li, L., Liu, Z., Cao, Q., Huang, Y., Xiong, J., Shi, H., Xie, E., et al. Lego-prover: Neural theorem proving with growing libraries. _arXiv preprint arXiv:2310.00656_, 2023.
+* Yang et al. (2023) Yang, K., Swope, A. M., Gu, A., Chalamala, R., Song, P., Yu, S., Godil, S., Prenger, R., and Anandkumar, A. Leaguejo: Theorem proving with retrieval-augmented language models. _arXiv preprint arXiv:2306.15626_, 2023.
+* Yao et al. (2023) Yao, S., Yu, D., Zhao, J., Shafran, I., Griffiths, T. L., Cao, Y., and Narasimhan, K. Tree of thoughts: Deliberate problem solving with large language models. _arXiv preprint arXiv:2305.10601_, 2023.
+* Yu et al. (2022) Yu, W., Zhu, C., Zhang, Z., Wang, S., Zhang, Z., Fang, Y., and Jiang, M. Retrieval augmentation for commonsense reasoning: A unified approach. In Goldberg, Y., Kozareva, Z., and Zhang, Y. (eds.), _Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing_, pp. 4364-4377, Abu Dhabi, United Arab Emirates, December 2022. Association for Computational Linguistics. doi: 10.18653/v1/2022.emnlp-main.294. URL [https://aclanthology.org/2022.emnlp-main.294](https://aclanthology.org/2022.emnlp-main.294).
+
+A Prompts.
+
+### Prompts on GPT-4 to construct the TriMaster100 dataset
+
+For most of the case, to let GPT-4 to output reasoning steps, following prompt is enough.
+
+Solve the question: \(\{\textbf{question}\}\).
+
+For certain questions, GPT-4 may invoke an external component where a python code gets involved. In that case, the calculated result will directly output without reasoning steps. To avoid this, following prompt will be used for that type of question, for example the question: "Find the value of \(tan^{2}(20)+tan^{2}(40)+tan^{2}(80)\)".
+
+Solve the question: \(\{\textbf{question}\}\). Please provide all steps of the reasoning.
+
+### Prompt for \(E\) of SSC-CoT to extract related information from question
+
+**Q:** For question: Simplify \(\tan(100)+\sin(10)\cos(10)+(\cot(20))^{2}+\sin(180+A)\). Extract trigonometric function and angles from the question. Be careful, for the pattern such as \(\sin(10)\cos(10)\), we should extract the trigonometric function as \(\sin(A)\cos(B)\), and for \((\cot(20))^{2}\), the extracted trigonometric function should be both \(\cot(A)\) and \((\cot(A))^{2}\). There is no need to solve the problem, just provide the relevant information.
+
+**A:** Trigonometric pattern(s): \(\tan(A)\), \(\sin(A)\cos(B)\), \(\cot(A)\), \((\cot(A))^{2}\), \(\sin(A)\). Angle(s): \(100\), \(10\), \(180+A\).
+
+**Q:** For question: \(\{\textbf{question}\}\). Extract trigonometric function and angles from the question. Be careful, for the pattern such as \(\sin(10)\cos(10)\), we should extract the trigonometric function as \(\sin(A)\cos(B)\), and for \((\cot(20))^{2}\), the extracted trigonometric function should be both \(\cot(A)\) and \((\cot(A))^{2}\). There is no need to solve the problem, just provide the relevant information.
+
+**A:**
+
+### Prompts for \(V\) of SSC-CoT to verify of intermediate result
+
+Here, the function \(V\) comprises two steps. Initially, we employ the following prompt to generate the entire reasoning process for determining the correctness of intermediate results for solving the given question.
+
+Given the mathematical question: \(\{\textbf{question}\}\), we have following inferences: \(\{\textbf{intermediate results}\}\). Do you think it is correct? Let's think step by step.
+
+After getting the entire process, we give the whole reasoning process to the following prompt to conclude whether the the intermediate results are correct.
+
+We have the inference as follows: \(\{\textbf{inference process}\}\). According to the inference, please conclude a clear answer.
+
+Please only output "yes" or "no".
+
+**A.4. Prompt for \(\mathcal{G}_{1}\) of SSC-CoT to generate reasoning chain**
+
+**Q.** Simplify
+
+\[\frac{-\sin(180+A)+\sin(-A)-\tan(360+A)}{\tan(A+180)+\cos(-A)+\cos(180-A)}.\]
+
+Useful knowledge:
+
+1. \(\sin(-X)=-\sin X.\)
+2. \(\sin(180+X)=-\sin X.\)
+3. \(\tan(180+X)=\tan X.\)
+4. \(\cos(180-X)=-\cos X.\)
+5. \(\cos(-X)=\cos X.\)
+
+In the end of reasoning, we have to summarize reasoning into concrete intermediate results without explanation (pure equation without extra text).
+
+**A.** Let's simplify the expression
+
+\[\frac{-\sin(180+A)+\sin(-A)-\tan(360+A)}{\tan(A+180)+\cos(-A)+\cos(180-A)}.\]
+
+For the numerator part:
+
+\[-\sin(180+A)+\sin(-A)-\tan(360+A)=-\tan(A).\]
+
+For the denominator part:
+
+\[\tan(A+180)+\cos(-A)+\cos(180-A)=\tan(A).\]
+
+Therefore,
+
+\[\frac{-\sin(180+A)+\sin(-A)-\tan(360+A)}{\tan(A+180)+\cos(-A)+\cos(180-A)}= \frac{-\tan(A)}{\tan(A)}=-1.\]
+
+To summarize, we can conclude our reasoning into three intermediate results:
+
+1. \(-\sin(180+A)+\sin(-A)-\tan(360+A)=-\tan(A)\),
+2. \(\tan(A+180)+\cos(-A)+\cos(180-A)=\tan(A)\),
+3. \(\frac{-\sin(180+A)+\sin(-A)-\tan(360+A)}{\tan(A+180)+\cos(-A)+\cos(180-A)}= \frac{-\tan(A)}{\tan(A)}=-1.\)
+
+**Q. {question}** Useful knowledge: {**related information**} In the end of reasoning, we have to summarize reasoning into concrete intermediate results without explanation (pure equation without extra text).
+
+**A.**
+
+**A.5. Prompt for \(\mathcal{G}\) of SSC-CoT to generate reasoning chain**
+
+**Q.** Simplify
+
+\[\frac{-\sin(180+A)+\sin(-A)-\tan(360+A)}{\tan(A+180)+\cos(-A)+\cos(180-A)}.\]
+
+Intermediate result 1:
+
+\[\frac{-\sin(180+A)+\sin(-A)-\tan(360+A)}{\tan(A+180)+\cos(-A)+\cos(180-A)}\]
+
+Useful knowledge:
+
+1. \(\sin(-X)=-\sin X\).
+2. \(\sin(180+X)=-\sin X\).
+3. \(\tan(180+X)=\tan X\).
+4. \(\cos(180-X)=-\cos X\).
+5. \(\cos(-X)=\cos X\).
+
+**A.** According to the intermediate result, simplify the expression
+
+\[\frac{-\sin(180+A)+\sin(-A)-\tan(360+A)}{\tan(A+180)+\cos(-A)+\cos(180-A)}\]
+
+to
+
+\[\frac{\sin(A)-\sin(A)-\tan(360+A)}{\tan(A+180)+\cos(A)-\cos(A)}.\]
+
+For the numerator part:
+
+\[\sin(A)-\sin(A)-\tan(360+A)=-\tan(A).\]
+
+For the denominator part:
+
+\[\tan(A+180)+\cos(A)-\cos(A)=\tan(A).\]
+
+Therefore,
+
+\[\frac{\sin(A)-\sin(A)-\tan(360+A)}{\tan(A+180)+\cos(A)-\cos(A)}=\frac{-\tan(A )}{\tan(A)}=-1.\]
+
+To summarize, we can conclude our reasoning into three intermediate results:
+
+1. \(\sin(A)-\sin(A)-\tan(360+A)=-\tan(A)\),
+2. \(\tan(A+180)+\cos(A)-\cos(A)=\tan(A)\),
+3. \(\frac{\sin(A)-\sin(A)-\tan(360+A)}{\tan(A+180)+\cos(A)-\cos(A)}=\frac{\sin(A)} {\tan(A)}=-1\).
+
+**Q. {question}**.
+
+Intermediate result: {**intermediate results**}.
+
+Useful knowledge: {**related information**}.
+
+In the end of reasoning, we have to summarize reasoning into concrete intermediate results without explanation (pure equation without extra text).
+
+**A.**
+
+### Prompt of few-shot learning for ToT, CoT-SC and LLEMMA
+
+**Example:**
+
+1. **Question:** Consider the function \(f(x)\) defined as follows: \(f(x)=ax+3\) if \(x>2\), \(x-5\) if \(-2\leq x\leq 2\), and \(2x-b\) if \(x<-2\). Find \(a+b\) if the function is continuous. **Solution:** 1. **Step 1:** Ensure continuity at \(x=2\) and \(x=-2\). Equate \(ax+3\) and \(x-5\) at \(x=2\). 2. **Step 2:** Solving \(a(2)+3=2-5\) leads to \(2a=-6\), so \(a=-3\). 3. **Step 3:** Equate \(x-5\) and \(2x-b\) at \(x=-2\). 4. **Step 4:** Solving \(-2-5=2(-2)-b\) gives \(b=3\). Therefore, \(a+b=-3+3\). **Final answer:** 0.
+
+**Example:**
+
+1. **Question:** What number is \(64\%\) of 16? Solution:** 1. **Step 1:** Let the number be \(x\). Set up the equation \(\frac{16}{x}=\frac{64}{100}\). 2. **Step 2:** Simplify to \(\frac{1}{x}=\frac{4}{100}=\frac{1}{25}\), so \(x=25\). **Final answer:** 25.
+
+**Example:**
+
+1. **Question:** Given three complex numbers \(a+bi\), \(c+di\), \(e+fi\), with \(b=1\), \(e=-a-c\), and their sum equal to \(-i\), find \(d+f\). **Solution:** 1. **Step 1:** Sum the complex numbers: \(a+bi+c+di+e+fi=-i\). The real parts sum to 0, and imaginary parts sum to -1. 2. **Step 2:** The equations become \(a+c+e=0\) and \(b+d+f=-1\). 3. **Step 3:** With \(b=1\), solve for \(d+f\), getting -2. **Final answer:** -2.
+
+**Task:**
+
+1. **Question:** {**question**} Think step by step and explain the reasoning for the final answer like the examples. Only include the current step number and explanation in your answer. Do not repeat the question or previous steps. **Solution:**
+
+## Appendix B Additional Quantitative Result
+
+In Table 3, we present the accuracy metrics for all baseline models applied to the TriMaster100 datasets. Notably, the LLEMMA 7B model completely solves 2 questions. Judging purely by accuracy, LLEMMA 7B surpasses CoT-SC, ToT, SSC-CoT\(\backslash\)KG, and LLEMMA 34B. However, a closer examination of the results in Table 2 reveals that LLEMMA 7B ranks lowest overall. This discrepancy in performance metrics underscores our initial assertion that for intricate mathematical questions, the rarity of complete solutions diminishes the significance of accuracy as a measure of an algorithm's mathematical reasoning capabilities. Consequently, our TriMaster100 dataset, which includes scored intermediate results, offers a more appropriate benchmark for evaluating the proficiency in complex mathematical question reasoning.
+
+## Appendix C Additional Qualitative Result
+
+Table 4 presents the mathematical reasoning process for an algebra question from MATH level 5. Initially, both algorithms correctly infer the first step. However, from the second round onward, our method, which utilizes an overlapping-based selection mechanism for intermediate results, successfully identifies and retains the crucial intermediate results. The verification process ensures the accuracy of the selected states, notably \(16-4c<0\), guiding us to the correct conclusion. In contrast, ToT only arrives at the expression \(16-4c\) in its third step, displaying a slower pace compared to SSC-CoT. Furthermore, an incorrect inference at the second step by ToT leads to a cascade of erroneous conclusions. This outcome demonstrates that SSC-CoT not only identifies critical intermediate results more quickly but also selects the accurate ones through verification steps.
+
+Table 5 illustrates the mathematical reasoning process for another algebra question at MATH level 5. In this instance, SSC-CoT makes an error, yet ToT eventually resolves the question, highlighting the challenges of applying SSC-CoT to LLMs. During the first round, SSC-CoT partially solves the question. However, the second round reveals disorganized calculations for \(k\), producing several values without any overlap. \(x\) value is also recalculated, which is incorrect and leads to an erroneous conclusion. This underscores the known difficulty of GPT-3 in performing arithmetic tasks (Testolin, 2024). Specifically, in round 2, two types of errors are observed: incorrect calculation of \(k\) and \(x\) despite accurate values for \(a\), \(b\), \(c\), and \(x\) are given, and a verification process that fails to accurately assess intermediate results, mistakenly using \(x=-1\) as \(S_{v}\). As we mentioned the limitations in the Conclusion suggests that enhancing verification could improve SSC-CoT's performance. Nevertheless, it is worth noting that in round 1, SSC-CoT accurately determined the values of \(a\), \(b\), \(c\), and \(x\). The same results are only found at step 3 by ToT, thereby reaffirming SSC-CoT's capability in quickly pinpointing critical intermediate results.
+
+\begin{table}
+\begin{tabular}{c} \hline \hline \(Q\): What is the smallest integer value of \(c\) such that the function \(f(x)=\frac{2x^{2}+x+5}{x^{2}+4x+c}\) has a domain of all real numbers? \\ \hline \hline \multicolumn{2}{c}{**Reasoning from SSC-CoT**} \\ \hline
+**Round 1 - Given**: \(Q\) \\ \(\mathbf{S}_{v}\): \(x^{2}+4x+c\)!= \(0\) \\
+**Round 2 - Given**: \(Q\), \(\mathbf{S}_{v}\) \\ \(\mathbf{S}_{v}\): \(16-4c<0\) \\
+**Round 3 - Given**: \(Q\), \(\mathbf{S}_{v}\) \\ \(\mathbf{S}_{v}\): \(c>4\) \\
+**Result**: \(c=5\) \\ \hline \hline \multicolumn{2}{c}{**Reasoning from ToT**} \\ \hline \hline \end{tabular}
+\end{table}
+Table 4: Solution from SSC-CoT (Top) and from ToT (Below) for an algebra question from MATH level 5. Mistakes during reasoning are highlighted in red.
+
+\begin{table}
+\begin{tabular}{c c c c c c c c} \hline \hline
+**SSC-CoT-HITL** & **SSC-CoT-HITL** & **KG** & **SSC-CoT** & **KG** & **CoT-SC** & **ToT** & **LLEMMA 7B** & **LLEMMA 34B** \\ \hline
+**5** & 2 & 1 & 2 & 1 & 1 & 2 & 1 \\ \hline \hline \end{tabular}
+\end{table}
+Table 3: Accuracy (%) Result of All Baselines on TriMaster100.
+
+## Appendix D Computational Infrastructure Details
+
+All experiments in this paper are conducted on the device given in Appendix D.
+
+\begin{table}
+\begin{tabular}{c|c} \hline \hline Device Attribute & Value \\ \hline Computing infrastructure & GPU \\ GPU model & NVIDIA A100 \\ GPU number & 1 \\ CUDA version & 12.2 \\ \hline \hline \end{tabular}
+\end{table}
+Table 6: Computational infrastructure details.
+
+\begin{table}
+\begin{tabular}{c|c} \hline \hline \multicolumn{2}{c}{**Reasoning from SSC-CoT**} \\ \hline
+**Round 1 - Given**: \(Q\) \\ \(\mathbf{S}_{v}\): \(a=6\), \(b=-36\), \(c=-96\), \(x=3\) \\
+**Round 2 - Given**: \(Q\), \(\mathbf{S}_{v}\) \\ \(\mathbf{S}_{v}\): \(x=-1\) \\
+**Round 3 - Given**: \(Q\), \(\mathbf{S}_{v}\) \\ \(\mathbf{S}_{v}\): \(k=54\) \\
+**Result**: \(k=54\) \\ \hline \hline \multicolumn{2}{c}{**Reasoning from ToT**} \\ \hline \multicolumn{2}{c}{**Step 1**: From the question, we can determine that \(k=(6x+12)(x-8)\)} \\
+**Step 2**: From \(k=(6x+12)(x-8)\), we know that \(k=6x^{2}-48x+12x-96\) \\
+**Step 3**: We can get that \(k=6x^{2}-36x-96\) so that \(a=6\), \(b=-36\) and \(c=-96\) \\
+**Step 4**: Due to \(x=\frac{-b}{2a}\), we can get a conclution that \(x=3\) \\
+**Step 5**:By bringing the result of \(a\), \(b\), \(c\) and \(x\) into \(k=ax^{2}+bx+c\), we can conclude that \(k=-150\)
+
+\begin{table}
+\begin{tabular}{c|c} \hline \hline \multicolumn{2}{c}{**Reasoning from SSC-CoT**} \\ \hline
+**Round 1 - Given**: \(Q\) \\ \(\mathbf{S}_{v}\): \(a=6\), \(b=-36\), \(c=-96\), \(x=3\) \\
+**Round 2 - Given**: \(Q\), \(\mathbf{S}_{v}\) \\ \(\mathbf{S}_{v}\): \(x=-1\) \\
+**Round 3 - Given**: \(Q\), \(\mathbf{S}_{v}\) \\ \(\mathbf{S}_{v}\): \(k=54\) \\
+**Result**: \(k=54\) \\ \hline \hline \multicolumn{2}{c}{**Reasoning from ToT**} \\ \hline \multicolumn{2}{c}{**Step 1**: From the question, we can determine that \(k=(6x+12)(x-8)\)} \\
+**Step 2**: From \(k=(6x+12)(x-8)\), we know that \(k=6x^{2}-48x+12x-96\) \\
+**Step 3**: We can get that \(k=6x^{2}-36x-96\) so that \(a=6\), \(b=-36\) and \(c=-96\) \\
+**Step 4**: Due to \(x=\frac{-b}{2a}\), we can get a conclution that \(x=3\) \\
+**Step 5**:By bringing the result of \(a\), \(b\), \(c\) and \(x\) into \(k=ax^{2}+bx+c\), we can conclude that \(k=-150\)
+
+\begin{table}
+\begin{tabular}{c|c} \hline \hline Device Attribute & Value \\ \hline Computing infrastructure & GPU \\ GPU model & NVIDIA A100 \\ GPU number & 1 \\ CUDA version & 12.2 \\ \hline \hline \end{tabular}
+\end{table}
+Table 5: Solution from SSC-CoT (Top) and from ToT (Below) for an algebra question from MATH level 5. Mistakes during reasoning are highlighted in red.
