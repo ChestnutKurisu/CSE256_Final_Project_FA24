@@ -1,0 +1,140 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[hyperref]{naaclhlt2019}
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage{graphicx}
+
+\usepackage{url}
+
+\aclfinalcopy 
+
+\title{Evaluating and Enhancing Large Language Models for Solving College-Level Mathematical Problems Using Retrieval-Augmented Generation and Chain-of-Thought Prompting}
+
+\author{Param Somane \\
+  Department of Computer Science and Engineering \\
+  University of California San Diego \\
+  \texttt{psomane@ucsd.edu}
+  }
+
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+Mathematical reasoning remains a significant challenge for large language models (LLMs). While recent advances in natural language processing (NLP) have led to impressive capabilities in language understanding and generation, LLMs often struggle with solving complex mathematical problems, particularly at the college level and beyond. Accurate mathematical problem-solving requires not only linguistic competence but also the ability to perform precise calculations and logical reasoning.
+
+Previously, I participated in the \textit{AI Mathematical Olympiad - Progress Prize 1} Kaggle competition~\cite{aimo2024}, which aimed to develop algorithms and models capable of solving challenging math problems written in LaTeX format. Through my participation, I gained valuable experience in applying LLMs to mathematical problem-solving and achieved commendable performance among over a thousand participants. The code I developed during the competition leveraged advanced prompting techniques and model fine-tuning to improve mathematical reasoning capabilities.
+
+This project aims to evaluate and enhance the performance of LLMs in solving college-level mathematical problems by leveraging Retrieval-Augmented Generation (RAG)~\cite{lewis2020retrieval} and Chain-of-Thought (CoT) prompting~\cite{wei2022chain}. I will investigate whether providing LLMs with additional context from mathematical textbooks and lecture notes can improve their reasoning processes and lead to more accurate solutions.
+
+Improving the mathematical problem-solving abilities of LLMs has significant practical implications. It can aid in educational settings, assist in automated theorem proving, and contribute to advancements in fields that rely heavily on mathematical computations. Moreover, understanding the limitations and capabilities of LLMs in mathematical reasoning can inform future research directions in NLP and AI.
+
+\section{Approach}
+To address the challenge of enhancing LLMs' ability to solve college-level mathematical problems, I propose a multi-faceted approach:
+
+\begin{enumerate}
+    \item \textbf{Baseline Evaluation}: I will begin by evaluating existing LLMs (e.g., GPT-3, GPT-4, or open-source equivalents) on standard mathematical problem datasets such as the MATH dataset~\cite{hendrycks2021measuring} and GSM8K~\cite{cobbe2021training}. This will establish a baseline performance level.
+
+    \item \textbf{Chain-of-Thought (CoT) Prompting}: I will implement CoT prompting~\cite{wei2022chain}, which encourages the model to generate intermediate reasoning steps before arriving at a final answer. This technique has been shown to improve reasoning capabilities in LLMs.
+
+    \item \textbf{Retrieval-Augmented Generation (RAG)}: I will incorporate RAG~\cite{lewis2020retrieval} by providing the LLM with relevant context from mathematical textbooks, lecture notes, and other resources. This context will be retrieved based on the problem at hand, potentially improving the model's understanding and solution accuracy.
+
+    \item \textbf{Implementation and Integration}: Building upon the Python code I developed during the Kaggle competition, which utilized self-consistency, code execution, and advanced prompting techniques, I will integrate RAG and CoT into a unified framework. This will involve developing modules for context retrieval, prompt engineering, and reasoning evaluation. The previous code focused on generating Python code to solve mathematical problems and executing it to obtain the final answer. By enhancing this framework with RAG and CoT, I aim to improve both the reasoning process and the accuracy of solutions.
+
+    \item \textbf{Evaluation and Analysis}: I will evaluate the enhanced model's performance on college-level mathematical problems, analyzing both the accuracy of the final answers and the correctness of the reasoning steps. I will compare results with the baseline and previous work to assess improvements.
+\end{enumerate}
+
+My approach differs from previous work by combining RAG and CoT techniques specifically for mathematical problem-solving at the college level, and by providing additional domain-specific context to the LLM. I aim to investigate whether these methods can synergistically enhance the LLM's reasoning capabilities.
+
+\paragraph{Topics from NLP Course Covered}
+\begin{itemize}
+    \item \textbf{Large Language Models (LLMs)}: Understanding and utilizing LLM architectures.
+    \item \textbf{Prompt Engineering}: Crafting effective prompts to elicit desired responses from LLMs.
+    \item \textbf{Retrieval-Augmented Generation (RAG)}: Combining retrieval mechanisms with generation models.
+    \item \textbf{Chain-of-Thought (CoT) Reasoning}: Encouraging step-by-step reasoning in LLMs.
+\end{itemize}
+
+\paragraph{What baseline algorithms will you use?}
+My baseline will consist of evaluating the LLMs using standard prompting without any additional context or special techniques. Specifically:
+
+\begin{itemize}
+    \item \textbf{Zero-Shot Prompting}: Directly asking the LLM to solve the problem without any intermediate steps or additional context.
+    \item \textbf{Standard Chain-of-Thought (CoT) Prompting}: Using CoT prompting without retrieval augmentation to see the effect of reasoning prompts alone.
+    \item \textbf{Baseline LLM Performance}: Measuring the performance of the LLMs on the datasets without any modifications, establishing a minimal performance benchmark.
+\end{itemize}
+
+These baselines will help assess the effectiveness of my proposed methods compared to simple and straightforward approaches.
+
+\subsection{Course of Action}
+I plan to complete the project with the following steps:
+
+\begin{enumerate}
+    \item \textit{Data Acquisition and Pre-processing}
+    \begin{itemize}
+        \item Collect datasets of college-level mathematical problems from HuggingFace and other sources.
+        \item Pre-process the data to ensure it is suitable for input to the LLMs.
+    \end{itemize}
+
+    \item \textit{Baseline Evaluation}
+    \begin{itemize}
+        \item Implement the baseline algorithms and evaluate the LLMs' performance.
+        \item Analyze results to identify key challenges and areas for improvement.
+    \end{itemize}
+
+    \item \textit{Implementation of CoT and RAG}
+    \begin{itemize}
+        \item Develop modules for Chain-of-Thought prompting.
+        \item Set up the retrieval system for Retrieval-Augmented Generation using textbooks and lecture notes.
+        \item Integrate CoT and RAG into the existing codebase from the Kaggle competition.
+    \end{itemize}
+
+    \item \textit{Model Training and Fine-tuning}
+    \begin{itemize}
+        \item Fine-tune the LLMs with the new framework.
+        \item Perform experiments to optimize parameters.
+    \end{itemize}
+
+    \item \textit{Evaluation and Error Analysis}
+    \begin{itemize}
+        \item Evaluate the enhanced model on the test datasets.
+        \item Conduct in-depth error analysis to understand failures and limitations.
+    \end{itemize}
+
+    \item \textit{Final Report Writing}
+    \begin{itemize}
+        \item Document methodology, experiments, results, and analysis.
+        \item Prepare the final report in \LaTeX~format.
+    \end{itemize}
+\end{enumerate}
+
+\section{Data and Compute}
+
+\paragraph{Data Sources}
+
+\begin{itemize}
+    \item \textbf{Mathematical Problem Datasets}: I will use publicly available datasets such as the MATH dataset~\cite{hendrycks2021measuring}, GSM8K~\cite{cobbe2021training}, and other similar datasets hosted on HuggingFace.
+
+    \item \textbf{Textbooks and Lecture Notes}: For retrieval augmentation, I will use digital versions of college-level mathematics textbooks and lecture notes, either from open-source materials or with appropriate permissions.
+\end{itemize}
+
+\paragraph{Data Availability}
+
+\begin{itemize}
+    \item All datasets are freely available and can be easily accessed and downloaded.
+    \item Textbooks and lecture notes will be sourced ensuring compliance with copyright laws.
+\end{itemize}
+
+\paragraph{Compute Resources}
+
+\begin{itemize}
+    \item \textbf{Compute Requirements}: Running LLMs, especially with retrieval and reasoning components, can be computationally intensive.
+    \item \textbf{Available Resources}: I plan to use Kaggle's 30+20 hours of TPU and GPU compute, as well as any available university resources (UCSD DataHub) or cloud credits.
+    \item \textbf{Feasibility}: The compute resources are sufficient for running experiments at the required scale. I will optimize my code to ensure efficient use of compute.
+\end{itemize}
+
+\bibliographystyle{apalike}
+\footnotesize
+\bibliography{yourbib}
+
+\end{document}
