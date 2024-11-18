@@ -101,7 +101,7 @@ If you prefer to run the code locally, follow these steps:
 2. **Run the Jupyter Notebook**:
 
    ```bash
-   jupyter notebook CSE256-FA24-Final-Project.ipynb
+   jupyter notebook kaggle/CSE256-FA24-Final-Project.ipynb
    ```
 
    **Note**: Ensure you have access to a GPU with sufficient memory (at least 16 GB VRAM) to load and run the models.
