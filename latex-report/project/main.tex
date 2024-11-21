@@ -45,24 +45,24 @@
 \date{}
 
 % Set up the fancy footer for the final page
-\fancypagestyle{ack_footer}{
-    \fancyhf{}  % Clear the default header/footer
-    \renewcommand{\headrulewidth}{0pt}  % Remove header line
-    \renewcommand{\footrulewidth}{0pt}  % Remove footer line
+% \fancypagestyle{ack_footer}{
+%     \fancyhf{}  % Clear the default header/footer
+%     \renewcommand{\headrulewidth}{0pt}  % Remove header line
+%     \renewcommand{\footrulewidth}{0pt}  % Remove footer line
 
-    % Left-aligned acknowledgments with adjusted spacing
-    \fancyfoot[L]{%
-        \tiny
-        \makebox[0pt][l]{% 0pt width, left-aligned
-            \parbox{0.93\textwidth}{
-                \textbf{Acknowledgments:} OpenAI's ChatGPT (model gpt-4o) was utilized to generate code, assist in adding comments and docstrings to Python functions, to help debug code errors, and assist in \LaTeX formatting. The outputs from this AI model were modified with major changes to align with assignment requirements and ensure correctness. I actively reviewed, tested, and adjusted the generated code and explanations to reflect my own understanding.
-            }
-        }
-    }
+%     % Left-aligned acknowledgments with adjusted spacing
+%     \fancyfoot[L]{%
+%         \tiny
+%         \makebox[0pt][l]{% 0pt width, left-aligned
+%             \parbox{0.93\textwidth}{
+%                 \textbf{Acknowledgments:} OpenAI's ChatGPT (model gpt-4o) was utilized to generate code, assist in adding comments and docstrings to Python functions, to help debug code errors, and assist in \LaTeX formatting. The outputs from this AI model were modified with major changes to align with assignment requirements and ensure correctness. I actively reviewed, tested, and adjusted the generated code and explanations to reflect my own understanding.
+%             }
+%         }
+%     }
 
-    % Right-aligned page number, positioned separately from the acknowledgments
-    \fancyfoot[R]{\thepage}
-}
+%     % Right-aligned page number, positioned separately from the acknowledgments
+%     \fancyfoot[R]{\thepage}
+% }
 
 \begin{document}
 \maketitle
@@ -86,11 +86,6 @@ My main contributions are:
     \item \textbf{Comprehensive Analysis}: I provide detailed analysis of the results, including error analysis, consistency evaluation, and the impact of computational constraints.
     \item \textbf{Future Directions}: I propose strategies for leveraging retrieval mechanisms, such as using ColBERT to retrieve relevant theorems, to further improve LLMs' mathematical problem-solving abilities.
 \end{itemize}
-
-\section{Related Work}
-Mathematical reasoning in LLMs has been an active area of research. Previous studies have highlighted the limitations of LLMs in handling complex mathematical problems \cite{hendrycks2021measuringmathematicalproblemsolving}. The introduction of Chain-of-Thought prompting has shown improvements in reasoning tasks by encouraging models to generate intermediate reasoning steps \cite{wei2023chainofthoughtpromptingelicitsreasoning}. Retrieval-Augmented Generation combines retrieval mechanisms with generation models to provide additional context, enhancing performance on knowledge-intensive tasks \cite{lewis2021retrievalaugmentedgenerationknowledgeintensivenlp}.
-
-Recent works like DeepSeek-Math \cite{shao2024deepseekmathpushinglimitsmathematical} and DeepSeek-Prover \cite{xin2024deepseekproverv15harnessingproofassistant} have specialized in mathematical problem-solving, leveraging reinforcement learning and fine-tuning techniques. Self-consistency decoding has been proposed to improve reasoning by generating multiple reasoning paths and selecting the most consistent one \cite{wang2023selfconsistencyimproveschainthought}.
 
 \section{Related Work}
 
@@ -300,6 +295,51 @@ k(x) = 3 - \sqrt{x - 3},
 to ensure the outputs map back to the domain \( x \leq 3 \). The LLM's choice of the positive root leads to outputs outside the intended domain.
 \end{tcolorbox}
 
+\paragraph{Problem:} \textit{Dr. Jones lives in a country with a progressive tax system. That is, he does not pay any taxes on the first \$20,000 in income he makes, he pays 5\% taxes on the next \$25,000, he pays 10\% taxes on the next \$35,000, he pays 15\% on the next \$50,000, and he pays 20\% on every additional dollar onwards. If Dr. Jones pays \$10,000 in taxes, then how much income does he make?}
+
+\paragraph{Correct Answer:} \$115,000
+
+\paragraph{LLM's Incorrect Answer:} \$98,750
+
+\begin{tcolorbox}[colback=gray!10, colframe=black, title=\textbf{Step-by-Step Analysis}, fonttitle=\bfseries]
+\footnotesize
+The LLM incorrectly assumed that Dr. Jones's income fell into the highest tax bracket (20\%), leading to an illogical negative taxable income when setting up the equation. Here's the step-by-step correct approach
+
+Calculate taxes for each bracket
+\[
+\begin{aligned}
+&\text{First \$20,000: } 0\% \Rightarrow \$0 \\
+&\text{Next \$25,000: } 5\% \Rightarrow 0.05 \times 25,000 = \$1,250 \\
+&\text{Next \$35,000: } 10\% \Rightarrow 0.10 \times 35,000 = \$3,500 \\
+&\text{Next \$50,000: } 15\% \Rightarrow 0.15 \times 50,000 = \$7,500 \\
+\end{aligned}
+\]
+   
+Total taxes up to \$130,000:
+\[
+\$1,250 + \$3,500 + \$7,500 = \$12,250
+\]
+
+Since Dr. Jones pays \$10,000 in taxes, which is less than \$12,250, his income does not reach the top of the 15\% bracket. Therefore, his income falls within the 15\% tax bracket.
+\\
+\\
+Set up the equation
+\begin{align*}
+\text{Taxes}_{total} &= \$1,250 + \$3,500 + 0.15(x - \$80,000) \\
+&= \$10,000
+\end{align*}
+
+Solve for \( x \)
+\begin{align*}
+0.15(x - 80,000) &= 10,000 - 1,250 - 3,500 \\
+&= 5,250 \\
+\therefore x - 80,000 &= \frac{5,250}{0.15} = 35,000 \\
+\therefore x &= 80,000 + 35,000 \\ &= \$115,000
+\end{align*}
+
+Thus, Dr. Jones's income is \$115,000.
+\end{tcolorbox}
+
 \paragraph{Problem:} \textit{What is the domain of the real-valued function
 \[
 q(x) = \dfrac{\sqrt{x}}{\sqrt{1 - x^2}}~?
@@ -368,51 +408,6 @@ j(0) = 2(0)^2 + 1 = 1.
 Thus, the correct range is \( [1, 9] \).
 \end{tcolorbox}
 
-\paragraph{Problem:} \textit{Dr. Jones lives in a country with a progressive tax system. That is, he does not pay any taxes on the first \$20,000 in income he makes, he pays 5\% taxes on the next \$25,000, he pays 10\% taxes on the next \$35,000, he pays 15\% on the next \$50,000, and he pays 20\% on every additional dollar onwards. If Dr. Jones pays \$10,000 in taxes, then how much income does he make?}
-
-\paragraph{Correct Answer:} \$115,000
-
-\paragraph{LLM's Incorrect Answer:} \$98,750
-
-\begin{tcolorbox}[colback=gray!10, colframe=black, title=\textbf{Step-by-Step Analysis}, fonttitle=\bfseries]
-\footnotesize
-The LLM incorrectly assumed that Dr. Jones's income fell into the highest tax bracket (20\%), leading to an illogical negative taxable income when setting up the equation. Here's the step-by-step correct approach
-
-Calculate taxes for each bracket
-\[
-\begin{aligned}
-&\text{First \$20,000: } 0\% \Rightarrow \$0 \\
-&\text{Next \$25,000: } 5\% \Rightarrow 0.05 \times 25,000 = \$1,250 \\
-&\text{Next \$35,000: } 10\% \Rightarrow 0.10 \times 35,000 = \$3,500 \\
-&\text{Next \$50,000: } 15\% \Rightarrow 0.15 \times 50,000 = \$7,500 \\
-\end{aligned}
-\]
-   
-Total taxes up to \$130,000:
-\[
-\$1,250 + \$3,500 + \$7,500 = \$12,250
-\]
-
-Since Dr. Jones pays \$10,000 in taxes, which is less than \$12,250, his income does not reach the top of the 15\% bracket. Therefore, his income falls within the 15\% tax bracket.
-\\
-\\
-Set up the equation
-\begin{align*}
-\text{Taxes}_{total} &= \$1,250 + \$3,500 + 0.15(x - \$80,000) \\
-&= \$10,000
-\end{align*}
-
-Solve for \( x \)
-\begin{align*}
-0.15(x - 80,000) &= 10,000 - 1,250 - 3,500 \\
-&= 5,250 \\
-\therefore x - 80,000 &= \frac{5,250}{0.15} = 35,000 \\
-\therefore x &= 80,000 + 35,000 \\ &= \$115,000
-\end{align*}
-
-Thus, Dr. Jones's income is \$115,000.
-\end{tcolorbox}
-
 \subsubsection{Interpretation of Results}
 The Standard CoT Prompting method's success suggests that encouraging step-by-step reasoning enhances the LLM's problem-solving capabilities. The limited improvement from RAG indicates that merely adding external knowledge without sufficient computational resources may not be effective. The results also highlight that the number of correct extracted answers does not always directly translate to higher accuracy, as seen with the Self-Consistency Decoding (5 Samples) method.
 
@@ -437,10 +432,14 @@ This study demonstrates that integrating CoT prompting enhances the mathematical
 
 The code and resources used in this study are publicly available at the following GitHub repository: \small{\url{https://github.com/ChestnutKurisu/CSE256_Final_Project_FA24}}\normalsize. Readers are encouraged to access the repository for detailed implementations, datasets, and additional resources related to this research.
 
+\section{Acknowledgments}
+
+OpenAI's ChatGPT (model gpt-4o) was utilized to generate code, assist in adding comments and docstrings to Python functions, to help debug code errors, and assist in \LaTeX formatting of tables and citations for typing up this report. The outputs from this AI model were modified with major changes to align with assignment requirements and ensure correctness. I actively reviewed, tested, and adjusted the generated code and explanations to reflect my own understanding.
+
 \bibliographystyle{acl_natbib}
 \bibliography{yourbib}
 
 % Trigger the footer for the last page
-\thispagestyle{ack_footer}
+% \thispagestyle{ack_footer}
 
 \end{document}
