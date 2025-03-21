@@ -139,7 +139,7 @@ For detailed results and analysis, refer to the notebooks and the final report i
 
 ## Data
 
-- **Dataset**: A subset of 50 hard (difficulty level 5) algebra problems from the [MATH dataset](https://huggingface.co/datasets/lighteval/MATH-Hard).
+- **Dataset**: A subset of 50 hard (difficulty level 5) algebra problems from the [MATH dataset](https://huggingface.co/datasets/ontocord/lighteval_MATH-Hard).
 - **Models Used**:
   - [DeepSeek-Prover-V1.5-RL](https://huggingface.co/deepseek-ai/DeepSeek-Prover-V1.5-RL)
   - [DeepSeek-Math-7B-RL](https://huggingface.co/deepseek-ai/deepseek-math-7b-rl)
